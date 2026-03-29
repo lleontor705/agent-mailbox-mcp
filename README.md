@@ -73,6 +73,10 @@ mcp: {
 | `msg_broadcast` | Send to all registered agents |
 | `msg_search` | Search messages by content |
 | `msg_threads` | List conversation threads |
+| `msg_get` | Get a single message by ID |
+| `msg_delete` | Delete an acked or delivered message |
+| `msg_count` | Count messages by status for an agent |
+| `msg_update_status` | Manually update message status |
 
 ### Agent Registry
 
