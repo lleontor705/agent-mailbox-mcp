@@ -1,0 +1,37 @@
+{
+  "name": "agent-mailbox-mcp",
+  "version": "1.0.0",
+  "description": "MCP Server for inter-agent messaging — SQS-style mailbox for multi-agent AI systems",
+  "type": "module",
+  "main": "./build/index.js",
+  "bin": {
+    "agent-mailbox-mcp": "./build/index.js"
+  },
+  "files": ["build"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm test",
+    "inspect": "npx @modelcontextprotocol/inspector node build/index.js"
+  },
+  "keywords": ["mcp", "model-context-protocol", "multi-agent", "messaging", "mailbox", "ai", "llm"],
+  "author": "lleontor705",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/lleontor705/agent-mailbox-mcp" },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.28.0",
+    "better-sqlite3": "^11.8.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

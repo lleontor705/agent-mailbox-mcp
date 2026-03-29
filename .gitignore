@@ -1,0 +1,9 @@
+node_modules/
+build/
+*.db
+*.db-wal
+*.db-shm
+.env
+coverage/
+.DS_Store
+*.tgz
