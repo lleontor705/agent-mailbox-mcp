@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { getDb } from "../database/index.js";
-import { PRIORITIES } from "../types/index.js";
+import { MESSAGE_STATUSES, PRIORITIES } from "../types/index.js";
 import { generateId } from "../utils/id.js";
 
 export function registerMessagingTools(server: McpServer): void {
@@ -243,6 +243,90 @@ export function registerMessagingTools(server: McpServer): void {
       ).all(agent, `%${agent}%`, limit);
 
       return { content: [{ type: "text" as const, text: JSON.stringify({ agent, threads }) }] };
+    }
+  );
+
+  server.tool(
+    "msg_get",
+    "Get a single message by ID. Returns full message details.",
+    {
+      message_id: z.string().describe("Message ID to retrieve"),
+    },
+    async ({ message_id }) => {
+      const db = getDb();
+      const msg = db.prepare(`SELECT * FROM messages WHERE id = ?`).get(message_id);
+
+      if (!msg) {
+        return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Message not found" }) }] };
+      }
+
+      return { content: [{ type: "text" as const, text: JSON.stringify({ message: msg }) }] };
+    }
+  );
+
+  server.tool(
+    "msg_delete",
+    "Delete a message by ID. Only allows deletion of acked or delivered messages.",
+    {
+      message_id: z.string().describe("Message ID to delete"),
+    },
+    async ({ message_id }) => {
+      const db = getDb();
+      const msg = db.prepare(`SELECT id, status FROM messages WHERE id = ?`).get(message_id) as { id: string; status: string } | undefined;
+
+      if (!msg) {
+        return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Message not found" }) }] };
+      }
+
+      if (msg.status !== "acked" && msg.status !== "delivered") {
+        return { content: [{ type: "text" as const, text: JSON.stringify({ error: `Cannot delete message with status '${msg.status}'. Only acked or delivered messages can be deleted.` }) }] };
+      }
+
+      db.prepare(`DELETE FROM messages WHERE id = ?`).run(message_id);
+
+      return { content: [{ type: "text" as const, text: JSON.stringify({ deleted: true, message_id }) }] };
+    }
+  );
+
+  server.tool(
+    "msg_count",
+    "Count messages by status for an agent.",
+    {
+      agent: z.string().describe("Agent name"),
+    },
+    async ({ agent }) => {
+      const db = getDb();
+      const rows = db.prepare(
+        `SELECT status, COUNT(*) as count FROM messages WHERE recipient = ? GROUP BY status`
+      ).all(agent) as Array<{ status: string; count: number }>;
+
+      const counts: Record<string, number> = { pending: 0, delivered: 0, acked: 0 };
+      for (const row of rows) {
+        counts[row.status] = row.count;
+      }
+
+      return { content: [{ type: "text" as const, text: JSON.stringify({ agent, counts }) }] };
+    }
+  );
+
+  server.tool(
+    "msg_update_status",
+    "Manually update message status. Useful for admin operations.",
+    {
+      message_id: z.string().describe("Message ID to update"),
+      status: z.enum(MESSAGE_STATUSES).describe("New status: pending, delivered, read, acked, expired"),
+    },
+    async ({ message_id, status }) => {
+      const db = getDb();
+      const msg = db.prepare(`SELECT id FROM messages WHERE id = ?`).get(message_id);
+
+      if (!msg) {
+        return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Message not found" }) }] };
+      }
+
+      db.prepare(`UPDATE messages SET status = ? WHERE id = ?`).run(status, message_id);
+
+      return { content: [{ type: "text" as const, text: JSON.stringify({ updated: true, message_id, status }) }] };
     }
   );
 }
