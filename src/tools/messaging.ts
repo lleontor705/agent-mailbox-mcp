@@ -180,7 +180,51 @@ export function registerMessagingTools(server: McpServer): void {
   );
 
   server.tool(
-    "msg_threads",
+    "msg_request",
+    "Send a message and wait for a reply (synchronous request/reply pattern with polling).",
+    {
+      sender: z.string().describe("Sender agent name"),
+      recipient: z.string().describe("Recipient agent name"),
+      subject: z.string().min(1).describe("Request subject"),
+      body: z.string().min(1).describe("Request body"),
+      timeout_seconds: z.number().default(120).describe("Max wait time for reply"),
+    },
+    async ({ sender, recipient, subject, body, timeout_seconds }) => {
+      const db = getDb();
+      const tid = generateId("thr");
+      const participants = JSON.stringify([sender, recipient]);
+      db.prepare(`INSERT INTO threads (id, subject, participants) VALUES (?, ?, ?)`).run(tid, subject, participants);
+
+      const msgId = generateId("msg");
+      const ttl = parseInt(process.env.MAILBOX_TTL || "86400", 10);
+      const expiresAt = new Date(Date.now() + ttl * 1000).toISOString();
+      db.prepare(
+        `INSERT INTO messages (id, sender, recipient, subject, body, priority, thread_id, expires_at)
+         VALUES (?, ?, ?, ?, ?, 'high', ?, ?)`
+      ).run(msgId, sender, recipient, subject, body, tid, expiresAt);
+
+      // Poll for reply
+      const deadline = Date.now() + timeout_seconds * 1000;
+      let delay = 500;
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, delay));
+        delay = Math.min(delay * 1.5, 5000);
+
+        const reply = db.prepare(
+          `SELECT * FROM messages WHERE thread_id = ? AND sender = ? AND recipient = ? AND id != ? ORDER BY created_at DESC LIMIT 1`
+        ).get(tid, recipient, sender, msgId) as Record<string, unknown> | undefined;
+
+        if (reply) {
+          return { content: [{ type: "text" as const, text: JSON.stringify({ success: true, request_id: msgId, reply }) }] };
+        }
+      }
+
+      return { content: [{ type: "text" as const, text: JSON.stringify({ success: false, request_id: msgId, error: "Timeout waiting for reply", timeout_seconds }) }] };
+    }
+  );
+
+  server.tool(
+    "msg_list_threads",
     "List conversation threads for an agent.",
     {
       agent: z.string().describe("Agent name"),

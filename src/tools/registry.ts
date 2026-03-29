@@ -22,7 +22,7 @@ export function registerRegistryTools(server: McpServer): void {
   );
 
   server.tool(
-    "agent_list",
+    "msg_list_agents",
     "List all registered agents with their roles and last activity.",
     {},
     async () => {
@@ -33,7 +33,7 @@ export function registerRegistryTools(server: McpServer): void {
   );
 
   server.tool(
-    "agent_activity",
+    "msg_activity_feed",
     "Get recent messaging activity feed.",
     {
       minutes: z.number().default(30).describe("Look back window in minutes"),
