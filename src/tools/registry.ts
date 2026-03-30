@@ -7,8 +7,8 @@ export function registerRegistryTools(server: McpServer): void {
     "agent_register",
     "Register an agent in the mailbox system with a name and role.",
     {
-      name: z.string().min(1).describe("Agent name (unique identifier)"),
-      role: z.string().default("").describe("Agent role (e.g. manager, coordinator, developer)"),
+      name: z.string().min(1).max(256).regex(/^[a-zA-Z0-9_.-]+$/).describe("Agent name (unique identifier)"),
+      role: z.string().max(256).default("").describe("Agent role (e.g. manager, coordinator, developer)"),
     },
     async ({ name, role }) => {
       const db = getDb();

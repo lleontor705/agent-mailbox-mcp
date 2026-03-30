@@ -14,8 +14,14 @@ export function getDb(): Database.Database {
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
   db = new Database(DB_PATH);
   db.pragma("journal_mode = WAL");
+  db.pragma("synchronous = normal");
+  db.pragma("cache_size = -32000");
+  db.pragma("temp_store = memory");
   db.pragma("busy_timeout = 5000");
   db.pragma("foreign_keys = ON");
+
+  const versionInfo = db.prepare("SELECT sqlite_version() as version").get() as { version: string };
+  console.error(`Agent Mailbox MCP: SQLite ${versionInfo.version}, WAL mode enabled`);
   initSchema(db);
   return db;
 }

@@ -9,13 +9,13 @@ export function registerMessagingTools(server: McpServer): void {
     "msg_send",
     "Send a message to another agent. Supports deduplication and threading.",
     {
-      sender: z.string().describe("Sender agent name"),
-      recipient: z.string().describe("Recipient agent name"),
-      subject: z.string().min(1).describe("Message subject"),
-      body: z.string().min(1).describe("Message body"),
+      sender: z.string().max(256).regex(/^[a-zA-Z0-9_.-]+$/).describe("Sender agent name"),
+      recipient: z.string().max(256).regex(/^[a-zA-Z0-9_.-]+$/).describe("Recipient agent name"),
+      subject: z.string().min(1).max(1024).describe("Message subject"),
+      body: z.string().min(1).max(65536).describe("Message body"),
       priority: z.enum(PRIORITIES).default("normal").describe("Priority: high, normal, low"),
-      thread_id: z.string().optional().describe("Thread ID for conversation continuity"),
-      dedup_key: z.string().optional().describe("Deduplication key to prevent duplicate processing"),
+      thread_id: z.string().max(256).optional().describe("Thread ID for conversation continuity"),
+      dedup_key: z.string().max(512).optional().describe("Deduplication key to prevent duplicate processing"),
     },
     async ({ sender, recipient, subject, body, priority, thread_id, dedup_key }) => {
       const db = getDb();
@@ -60,8 +60,8 @@ export function registerMessagingTools(server: McpServer): void {
     "msg_read_inbox",
     "Read unread messages for an agent. Messages are marked as delivered.",
     {
-      agent: z.string().describe("Agent name (recipient)"),
-      limit: z.number().default(10).describe("Max messages to return"),
+      agent: z.string().max(256).regex(/^[a-zA-Z0-9_.-]+$/).describe("Agent name (recipient)"),
+      limit: z.number().min(1).max(100).default(10).describe("Max messages to return"),
     },
     async ({ agent, limit }) => {
       const db = getDb();
@@ -90,8 +90,8 @@ export function registerMessagingTools(server: McpServer): void {
     "msg_acknowledge",
     "Acknowledge a message as processed. Optionally send a reply back to the sender.",
     {
-      message_id: z.string().describe("Message ID to acknowledge"),
-      reply_body: z.string().optional().describe("Optional reply message body"),
+      message_id: z.string().max(256).describe("Message ID to acknowledge"),
+      reply_body: z.string().max(65536).optional().describe("Optional reply message body"),
     },
     async ({ message_id, reply_body }) => {
       const db = getDb();
@@ -122,9 +122,9 @@ export function registerMessagingTools(server: McpServer): void {
     "msg_broadcast",
     "Send a message to all registered agents.",
     {
-      sender: z.string().describe("Sender agent name"),
-      subject: z.string().min(1).describe("Message subject"),
-      body: z.string().min(1).describe("Message body"),
+      sender: z.string().max(256).regex(/^[a-zA-Z0-9_.-]+$/).describe("Sender agent name"),
+      subject: z.string().min(1).max(1024).describe("Message subject"),
+      body: z.string().min(1).max(65536).describe("Message body"),
       priority: z.enum(PRIORITIES).default("normal"),
     },
     async ({ sender, subject, body, priority }) => {
@@ -159,9 +159,9 @@ export function registerMessagingTools(server: McpServer): void {
     "msg_search",
     "Search messages by content, subject, or sender/recipient.",
     {
-      query: z.string().describe("Search query"),
-      agent: z.string().optional().describe("Filter by agent (sender or recipient)"),
-      limit: z.number().default(20).describe("Max results"),
+      query: z.string().max(1024).describe("Search query"),
+      agent: z.string().max(256).regex(/^[a-zA-Z0-9_.-]+$/).optional().describe("Filter by agent (sender or recipient)"),
+      limit: z.number().min(1).max(100).default(20).describe("Max results"),
     },
     async ({ query, agent, limit }) => {
       const db = getDb();
@@ -183,11 +183,11 @@ export function registerMessagingTools(server: McpServer): void {
     "msg_request",
     "Send a message and wait for a reply (synchronous request/reply pattern with polling).",
     {
-      sender: z.string().describe("Sender agent name"),
-      recipient: z.string().describe("Recipient agent name"),
-      subject: z.string().min(1).describe("Request subject"),
-      body: z.string().min(1).describe("Request body"),
-      timeout_seconds: z.number().default(120).describe("Max wait time for reply"),
+      sender: z.string().max(256).regex(/^[a-zA-Z0-9_.-]+$/).describe("Sender agent name"),
+      recipient: z.string().max(256).regex(/^[a-zA-Z0-9_.-]+$/).describe("Recipient agent name"),
+      subject: z.string().min(1).max(1024).describe("Request subject"),
+      body: z.string().min(1).max(65536).describe("Request body"),
+      timeout_seconds: z.number().min(1).max(300).default(120).describe("Max wait time for reply"),
     },
     async ({ sender, recipient, subject, body, timeout_seconds }) => {
       const db = getDb();
@@ -227,8 +227,8 @@ export function registerMessagingTools(server: McpServer): void {
     "msg_list_threads",
     "List conversation threads for an agent.",
     {
-      agent: z.string().describe("Agent name"),
-      limit: z.number().default(10).describe("Max threads"),
+      agent: z.string().max(256).regex(/^[a-zA-Z0-9_.-]+$/).describe("Agent name"),
+      limit: z.number().min(1).max(100).default(10).describe("Max threads"),
     },
     async ({ agent, limit }) => {
       const db = getDb();
@@ -250,7 +250,7 @@ export function registerMessagingTools(server: McpServer): void {
     "msg_get",
     "Get a single message by ID. Returns full message details.",
     {
-      message_id: z.string().describe("Message ID to retrieve"),
+      message_id: z.string().max(256).describe("Message ID to retrieve"),
     },
     async ({ message_id }) => {
       const db = getDb();
@@ -268,7 +268,7 @@ export function registerMessagingTools(server: McpServer): void {
     "msg_delete",
     "Delete a message by ID. Only allows deletion of acked or delivered messages.",
     {
-      message_id: z.string().describe("Message ID to delete"),
+      message_id: z.string().max(256).describe("Message ID to delete"),
     },
     async ({ message_id }) => {
       const db = getDb();
@@ -292,7 +292,7 @@ export function registerMessagingTools(server: McpServer): void {
     "msg_count",
     "Count messages by status for an agent.",
     {
-      agent: z.string().describe("Agent name"),
+      agent: z.string().max(256).regex(/^[a-zA-Z0-9_.-]+$/).describe("Agent name"),
     },
     async ({ agent }) => {
       const db = getDb();
@@ -313,7 +313,7 @@ export function registerMessagingTools(server: McpServer): void {
     "msg_update_status",
     "Manually update message status. Useful for admin operations.",
     {
-      message_id: z.string().describe("Message ID to update"),
+      message_id: z.string().max(256).describe("Message ID to update"),
       status: z.enum(MESSAGE_STATUSES).describe("New status: pending, delivered, read, acked, expired"),
     },
     async ({ message_id, status }) => {
