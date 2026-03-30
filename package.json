@@ -5,9 +5,11 @@
   "type": "module",
   "main": "./build/index.js",
   "bin": {
-    "agent-mailbox-mcp": "./build/index.js"
+    "agent-mailbox-mcp": "build/index.js"
   },
-  "files": ["build"],
+  "files": [
+    "build"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
@@ -17,11 +19,27 @@
     "prepublishOnly": "npm run build && npm test",
     "inspect": "npx @modelcontextprotocol/inspector node build/index.js"
   },
-  "keywords": ["mcp", "model-context-protocol", "multi-agent", "messaging", "mailbox", "ai", "llm"],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "multi-agent",
+    "messaging",
+    "mailbox",
+    "ai",
+    "llm"
+  ],
   "author": "lleontor705",
   "license": "MIT",
-  "repository": { "type": "git", "url": "https://github.com/lleontor705/agent-mailbox-mcp" },
-  "engines": { "node": ">=18" },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lleontor705/agent-mailbox-mcp.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.28.0",
     "better-sqlite3": "^11.8.0",
