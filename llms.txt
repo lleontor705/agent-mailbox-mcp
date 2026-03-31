@@ -1,0 +1,35 @@
+# agent-mailbox-mcp
+
+> MCP Server for inter-agent messaging — SQS-style mailbox for multi-agent AI systems. Provides 14 tools for sending, receiving, threading, broadcasting, and managing messages between AI agents via the Model Context Protocol.
+
+## Quick Start
+
+Run with npx: `npx -y agent-mailbox-mcp`
+
+Configure in Claude Code: `claude mcp add agent-mailbox --transport stdio -- npx -y agent-mailbox-mcp`
+
+## Docs
+
+- [README](https://github.com/lleontor705/agent-mailbox-mcp/blob/master/README.md): Full documentation with configuration examples
+- [llms-full.txt](https://github.com/lleontor705/agent-mailbox-mcp/blob/master/llms-full.txt): Complete API reference for LLMs
+- [npm](https://www.npmjs.com/package/agent-mailbox-mcp): Package on npm
+
+## Tools (14 total)
+
+### Messaging (11 tools)
+- `msg_send`: Send a message to another agent with priority, threading, and dedup
+- `msg_read_inbox`: Read unread messages (marks as delivered, sorted by priority)
+- `msg_acknowledge`: Acknowledge a message, optionally reply
+- `msg_broadcast`: Send to all registered agents
+- `msg_search`: Search messages by content
+- `msg_request`: Synchronous request/reply with polling
+- `msg_list_threads`: List conversation threads with unread counts
+- `msg_get`: Get a single message by ID
+- `msg_delete`: Delete acked or delivered messages
+- `msg_count`: Count messages by status
+- `msg_update_status`: Admin status updates
+
+### Registry (3 tools)
+- `agent_register`: Register agent with name and role
+- `msg_list_agents`: List all registered agents
+- `msg_activity_feed`: Recent activity feed with statistics
