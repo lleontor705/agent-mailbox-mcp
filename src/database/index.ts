@@ -1,29 +1,49 @@
 import Database from "better-sqlite3";
-import path from "node:path";
-import os from "node:os";
 import fs from "node:fs";
-
-const DEFAULT_DIR = path.join(os.homedir(), ".agent-mailbox");
-const DB_DIR = process.env.MAILBOX_DIR || DEFAULT_DIR;
-const DB_PATH = process.env.MAILBOX_DB || path.join(DB_DIR, "mailbox.db");
+import { loadConfig } from "../config.js";
+import { runMigrations } from "./migrations.js";
+import { createRepositories, type Repositories } from "./repositories/index.js";
 
 let db: Database.Database | null = null;
+let repos: Repositories | null = null;
 
 export function getDb(): Database.Database {
   if (db) return db;
-  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-  db = new Database(DB_PATH);
+  const config = loadConfig();
+  fs.mkdirSync(config.dbDir, { recursive: true });
+  db = new Database(config.dbPath);
+  configurePragmas(db);
+
+  const versionInfo = db.prepare("SELECT sqlite_version() as version").get() as { version: string };
+  console.error(`Agent Mailbox MCP: SQLite ${versionInfo.version}, WAL mode enabled`);
+
+  initSchema(db);
+  runMigrations(db);
+  repos = createRepositories(db);
+  return db;
+}
+
+/** Initialize from an existing Database instance (for testing) */
+export function initFromDb(database: Database.Database): Repositories {
+  initSchema(database);
+  runMigrations(database);
+  return createRepositories(database);
+}
+
+export function getRepos(): Repositories {
+  if (!repos) {
+    getDb(); // triggers initialization
+  }
+  return repos!;
+}
+
+function configurePragmas(db: Database.Database): void {
   db.pragma("journal_mode = WAL");
   db.pragma("synchronous = normal");
   db.pragma("cache_size = -32000");
   db.pragma("temp_store = memory");
   db.pragma("busy_timeout = 5000");
   db.pragma("foreign_keys = ON");
-
-  const versionInfo = db.prepare("SELECT sqlite_version() as version").get() as { version: string };
-  console.error(`Agent Mailbox MCP: SQLite ${versionInfo.version}, WAL mode enabled`);
-  initSchema(db);
-  return db;
 }
 
 function initSchema(db: Database.Database): void {
@@ -67,5 +87,5 @@ function initSchema(db: Database.Database): void {
 }
 
 export function closeDb(): void {
-  if (db) { db.close(); db = null; }
+  if (db) { db.close(); db = null; repos = null; }
 }

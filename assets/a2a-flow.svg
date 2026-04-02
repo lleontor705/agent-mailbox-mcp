@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" font-family="system-ui, -apple-system, sans-serif" font-size="13">
+  <rect width="800" height="400" rx="12" fill="#0d1117"/>
+  <text x="400" y="30" text-anchor="middle" fill="#7b2ff7" font-size="16" font-weight="bold">A2A Task Lifecycle</text>
+
+  <!-- States -->
+  <rect x="50" y="80" width="120" height="40" rx="8" fill="#1f2937" stroke="#fbbf24" stroke-width="2"/>
+  <text x="110" y="105" text-anchor="middle" fill="#fbbf24" font-size="13" font-weight="600">submitted</text>
+
+  <rect x="250" y="80" width="120" height="40" rx="8" fill="#1f2937" stroke="#a78bfa" stroke-width="2"/>
+  <text x="310" y="105" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="600">working</text>
+
+  <rect x="450" y="80" width="140" height="40" rx="8" fill="#1f2937" stroke="#fb923c" stroke-width="2"/>
+  <text x="520" y="105" text-anchor="middle" fill="#fb923c" font-size="13" font-weight="600">input-required</text>
+
+  <rect x="300" y="190" width="120" height="40" rx="8" fill="#0e4429" stroke="#34d399" stroke-width="2"/>
+  <text x="360" y="215" text-anchor="middle" fill="#34d399" font-size="13" font-weight="600">completed</text>
+
+  <rect x="480" y="190" width="100" height="40" rx="8" fill="#2d1a1a" stroke="#f87171" stroke-width="2"/>
+  <text x="530" y="215" text-anchor="middle" fill="#f87171" font-size="13" font-weight="600">failed</text>
+
+  <rect x="640" y="190" width="110" height="40" rx="8" fill="#1f2020" stroke="#6b7280" stroke-width="2"/>
+  <text x="695" y="215" text-anchor="middle" fill="#6b7280" font-size="13" font-weight="600">canceled</text>
+
+  <!-- Arrows -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#58a6ff"/>
+    </marker>
+    <marker id="arrowGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+
+  <!-- submitted → working -->
+  <line x1="170" y1="100" x2="245" y2="100" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- working → completed -->
+  <line x1="310" y1="120" x2="340" y2="185" stroke="#34d399" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- working → input-required -->
+  <line x1="370" y1="100" x2="445" y2="100" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- input-required → working -->
+  <path d="M 490 120 Q 420 150 370 120" fill="none" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="4" marker-end="url(#arrow)"/>
+
+  <!-- working → failed -->
+  <line x1="350" y1="120" x2="510" y2="185" stroke="#f87171" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- * → canceled -->
+  <line x1="160" y1="120" x2="650" y2="195" stroke="#6b7280" stroke-width="1" stroke-dasharray="4" marker-end="url(#arrowGray)"/>
+  <line x1="350" y1="120" x2="660" y2="195" stroke="#6b7280" stroke-width="1" stroke-dasharray="4" marker-end="url(#arrowGray)"/>
+
+  <!-- Legend -->
+  <rect x="50" y="270" width="700" height="110" rx="8" fill="#161b22" stroke="#30363d"/>
+  <text x="70" y="295" fill="#8b949e" font-size="12" font-weight="600">How it works:</text>
+
+  <text x="70" y="318" fill="#e1e4e8" font-size="12">1. Agent A calls <tspan fill="#00d2ff">a2a_submit_task</tspan> → task created as <tspan fill="#fbbf24">submitted</tspan></text>
+  <text x="70" y="338" fill="#e1e4e8" font-size="12">2. Agent B picks up task, calls <tspan fill="#00d2ff">a2a_respond_task</tspan> with status <tspan fill="#a78bfa">working</tspan></text>
+  <text x="70" y="358" fill="#e1e4e8" font-size="12">3. Agent B completes work → status moves to <tspan fill="#34d399">completed</tspan> with artifacts attached</text>
+  <text x="70" y="375" fill="#e1e4e8" font-size="12">4. SSE stream + push notifications fire on every state change</text>
+</svg>
