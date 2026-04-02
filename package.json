@@ -5,7 +5,8 @@
   "type": "module",
   "main": "./build/index.js",
   "bin": {
-    "agent-mailbox-mcp": "build/index.js"
+    "agent-mailbox-mcp": "build/index.js",
+    "agent-mailbox-serve": "build/http-cli.js"
   },
   "files": [
     "build"
@@ -17,6 +18,7 @@
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build && npm test",
+    "serve": "tsx src/http-cli.ts",
     "inspect": "npx @modelcontextprotocol/inspector node build/index.js"
   },
   "keywords": [
@@ -26,7 +28,9 @@
     "messaging",
     "mailbox",
     "ai",
-    "llm"
+    "llm",
+    "a2a",
+    "agent-to-agent"
   ],
   "author": "lleontor705",
   "license": "MIT",
@@ -43,10 +47,12 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^11.8.0",
+    "express": "^5.2.1",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.7.0",

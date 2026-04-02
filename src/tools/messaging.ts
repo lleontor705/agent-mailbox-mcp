@@ -1,8 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { getDb } from "../database/index.js";
+import { getRepos } from "../database/index.js";
 import { MESSAGE_STATUSES, PRIORITIES } from "../types/index.js";
-import { generateId } from "../utils/id.js";
+import { loadConfig } from "../config.js";
+import { eventBus } from "../events/event-bus.js";
+
+function computeExpiresAt(): string {
+  const ttl = loadConfig().ttlSeconds;
+  return new Date(Date.now() + ttl * 1000).toISOString();
+}
 
 export function registerMessagingTools(server: McpServer): void {
   server.tool(
@@ -18,39 +24,28 @@ export function registerMessagingTools(server: McpServer): void {
       dedup_key: z.string().max(512).optional().describe("Deduplication key to prevent duplicate processing"),
     },
     async ({ sender, recipient, subject, body, priority, thread_id, dedup_key }) => {
-      const db = getDb();
+      const { messages, threads, agents } = getRepos();
 
-      if (dedup_key) {
-        const exists = db.prepare(`SELECT id FROM messages WHERE dedup_key = ?`).get(dedup_key);
-        if (exists) {
-          return { content: [{ type: "text" as const, text: JSON.stringify({ sent: false, reason: "duplicate", dedup_key }) }] };
-        }
+      if (dedup_key && messages.hasDedupKey(dedup_key)) {
+        return { content: [{ type: "text" as const, text: JSON.stringify({ sent: false, reason: "duplicate", dedup_key }) }] };
       }
 
       let tid = thread_id || null;
       if (!tid) {
-        tid = generateId("thr");
-        const participants = JSON.stringify([sender, recipient]);
-        db.prepare(`INSERT INTO threads (id, subject, participants) VALUES (?, ?, ?)`).run(tid, subject, participants);
+        tid = threads.create(subject, [sender, recipient]);
       } else {
-        const thread = db.prepare(`SELECT participants FROM threads WHERE id = ?`).get(tid) as { participants: string } | undefined;
-        if (thread) {
-          const parts: string[] = JSON.parse(thread.participants);
-          const updated = [...new Set([...parts, sender, recipient])];
-          db.prepare(`UPDATE threads SET participants = ?, updated_at = datetime('now') WHERE id = ?`).run(JSON.stringify(updated), tid);
-        }
+        threads.addParticipants(tid, [sender, recipient]);
       }
 
-      const id = generateId("msg");
-      const ttl = parseInt(process.env.MAILBOX_TTL || "86400", 10);
-      const expiresAt = new Date(Date.now() + ttl * 1000).toISOString();
+      const id = messages.insert({
+        sender, recipient, subject, body, priority,
+        thread_id: tid, dedup_key, expires_at: computeExpiresAt(),
+      });
 
-      db.prepare(
-        `INSERT INTO messages (id, sender, recipient, subject, body, priority, thread_id, dedup_key, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).run(id, sender, recipient, subject, body, priority, tid, dedup_key || null, expiresAt);
+      agents.updateActivity(sender);
 
-      db.prepare(`UPDATE agent_registry SET last_active = datetime('now') WHERE id = ?`).run(sender);
+      // Notify listeners (used by msg_request to avoid polling)
+      eventBus.publish(`message:${recipient}`, { message_id: id, thread_id: tid, sender });
 
       return { content: [{ type: "text" as const, text: JSON.stringify({ sent: true, message_id: id, thread_id: tid, recipient, priority }) }] };
     }
@@ -64,25 +59,15 @@ export function registerMessagingTools(server: McpServer): void {
       limit: z.number().min(1).max(100).default(10).describe("Max messages to return"),
     },
     async ({ agent, limit }) => {
-      const db = getDb();
+      const { messages, agents } = getRepos();
 
-      db.prepare(`DELETE FROM messages WHERE expires_at < datetime('now') AND status = 'pending'`).run();
+      messages.expirePending();
+      const msgs = messages.findByRecipient(agent, limit);
+      const ids = msgs.map((m) => m.id as string);
+      messages.markDelivered(ids);
+      agents.updateActivity(agent);
 
-      const messages = db.prepare(
-        `SELECT * FROM messages WHERE recipient = ? AND status IN ('pending', 'delivered')
-         ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 WHEN 'low' THEN 2 END, created_at ASC
-         LIMIT ?`
-      ).all(agent, limit);
-
-      const ids = messages.map((m: any) => m.id);
-      if (ids.length > 0) {
-        const placeholders = ids.map(() => "?").join(",");
-        db.prepare(`UPDATE messages SET status = 'delivered', delivered_at = datetime('now') WHERE id IN (${placeholders}) AND status = 'pending'`).run(...ids);
-      }
-
-      db.prepare(`INSERT INTO agent_registry (id, role, last_active) VALUES (?, '', datetime('now')) ON CONFLICT(id) DO UPDATE SET last_active = datetime('now')`).run(agent);
-
-      return { content: [{ type: "text" as const, text: JSON.stringify({ agent, count: messages.length, messages }) }] };
+      return { content: [{ type: "text" as const, text: JSON.stringify({ agent, count: msgs.length, messages: msgs }) }] };
     }
   );
 
@@ -94,24 +79,26 @@ export function registerMessagingTools(server: McpServer): void {
       reply_body: z.string().max(65536).optional().describe("Optional reply message body"),
     },
     async ({ message_id, reply_body }) => {
-      const db = getDb();
-      const msg = db.prepare(`SELECT * FROM messages WHERE id = ?`).get(message_id) as any;
+      const { messages } = getRepos();
+      const msg = messages.findById(message_id);
 
       if (!msg) {
         return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Message not found" }) }] };
       }
 
-      db.prepare(`UPDATE messages SET status = 'acked', acked_at = datetime('now') WHERE id = ?`).run(message_id);
+      messages.acknowledge(message_id);
 
       let reply_id: string | null = null;
       if (reply_body) {
-        reply_id = generateId("msg");
-        const ttl = parseInt(process.env.MAILBOX_TTL || "86400", 10);
-        const expiresAt = new Date(Date.now() + ttl * 1000).toISOString();
-        db.prepare(
-          `INSERT INTO messages (id, sender, recipient, subject, body, priority, thread_id, expires_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-        ).run(reply_id, msg.recipient, msg.sender, `Re: ${msg.subject}`, reply_body, msg.priority, msg.thread_id, expiresAt);
+        reply_id = messages.insert({
+          sender: msg.recipient as string,
+          recipient: msg.sender as string,
+          subject: `Re: ${msg.subject}`,
+          body: reply_body,
+          priority: msg.priority as string,
+          thread_id: (msg.thread_id as string) || null,
+          expires_at: computeExpiresAt(),
+        });
       }
 
       return { content: [{ type: "text" as const, text: JSON.stringify({ acknowledged: true, message_id, reply_id }) }] };
@@ -128,30 +115,25 @@ export function registerMessagingTools(server: McpServer): void {
       priority: z.enum(PRIORITIES).default("normal"),
     },
     async ({ sender, subject, body, priority }) => {
-      const db = getDb();
-      const agents = db.prepare(`SELECT id FROM agent_registry WHERE id != ?`).all(sender) as Array<{ id: string }>;
+      const { messages, threads, agents } = getRepos();
+      const allAgents = agents.listAllExcept(sender);
 
-      const tid = generateId("thr");
-      const participants = JSON.stringify([sender, ...agents.map(a => a.id)]);
-      db.prepare(`INSERT INTO threads (id, subject, participants) VALUES (?, ?, ?)`).run(tid, subject, participants);
-
-      const ttl = parseInt(process.env.MAILBOX_TTL || "86400", 10);
-      const expiresAt = new Date(Date.now() + ttl * 1000).toISOString();
-      const insert = db.prepare(
-        `INSERT INTO messages (id, sender, recipient, subject, body, priority, thread_id, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      );
+      const tid = threads.create(subject, [sender, ...allAgents.map((a) => a.id)]);
+      const expiresAt = computeExpiresAt();
 
       const ids: string[] = [];
-      const tx = db.transaction(() => {
-        for (const agent of agents) {
-          const id = generateId("msg");
-          insert.run(id, sender, agent.id, subject, body, priority, tid, expiresAt);
+      const tx = messages.db.transaction(() => {
+        for (const agent of allAgents) {
+          const id = messages.insert({
+            sender, recipient: agent.id, subject, body, priority,
+            thread_id: tid, expires_at: expiresAt,
+          });
           ids.push(id);
         }
       });
       tx();
 
-      return { content: [{ type: "text" as const, text: JSON.stringify({ broadcast: true, recipients: agents.length, message_ids: ids, thread_id: tid }) }] };
+      return { content: [{ type: "text" as const, text: JSON.stringify({ broadcast: true, recipients: allAgents.length, message_ids: ids, thread_id: tid }) }] };
     }
   );
 
@@ -162,20 +144,12 @@ export function registerMessagingTools(server: McpServer): void {
       query: z.string().max(1024).describe("Search query"),
       agent: z.string().max(256).regex(/^[a-zA-Z0-9_.-]+$/).optional().describe("Filter by agent (sender or recipient)"),
       limit: z.number().min(1).max(100).default(20).describe("Max results"),
+      offset: z.number().min(0).default(0).describe("Offset for pagination"),
     },
-    async ({ query, agent, limit }) => {
-      const db = getDb();
-      const likeQuery = `%${query}%`;
-
-      const messages = agent
-        ? db.prepare(
-            `SELECT * FROM messages WHERE (sender = ? OR recipient = ?) AND (subject LIKE ? OR body LIKE ?) ORDER BY created_at DESC LIMIT ?`
-          ).all(agent, agent, likeQuery, likeQuery, limit)
-        : db.prepare(
-            `SELECT * FROM messages WHERE subject LIKE ? OR body LIKE ? ORDER BY created_at DESC LIMIT ?`
-          ).all(likeQuery, likeQuery, limit);
-
-      return { content: [{ type: "text" as const, text: JSON.stringify({ query, count: messages.length, messages }) }] };
+    async ({ query, agent, limit, offset }) => {
+      const { messages } = getRepos();
+      const results = messages.search(query, agent, limit, offset);
+      return { content: [{ type: "text" as const, text: JSON.stringify({ query, count: results.length, offset, messages: results }) }] };
     }
   );
 
@@ -190,33 +164,30 @@ export function registerMessagingTools(server: McpServer): void {
       timeout_seconds: z.number().min(1).max(300).default(120).describe("Max wait time for reply"),
     },
     async ({ sender, recipient, subject, body, timeout_seconds }) => {
-      const db = getDb();
-      const tid = generateId("thr");
-      const participants = JSON.stringify([sender, recipient]);
-      db.prepare(`INSERT INTO threads (id, subject, participants) VALUES (?, ?, ?)`).run(tid, subject, participants);
+      const { messages, threads } = getRepos();
 
-      const msgId = generateId("msg");
-      const ttl = parseInt(process.env.MAILBOX_TTL || "86400", 10);
-      const expiresAt = new Date(Date.now() + ttl * 1000).toISOString();
-      db.prepare(
-        `INSERT INTO messages (id, sender, recipient, subject, body, priority, thread_id, expires_at)
-         VALUES (?, ?, ?, ?, ?, 'high', ?, ?)`
-      ).run(msgId, sender, recipient, subject, body, tid, expiresAt);
+      const tid = threads.create(subject, [sender, recipient]);
+      const msgId = messages.insert({
+        sender, recipient, subject, body, priority: "high",
+        thread_id: tid, expires_at: computeExpiresAt(),
+      });
 
-      // Poll for reply
-      const deadline = Date.now() + timeout_seconds * 1000;
-      let delay = 500;
-      while (Date.now() < deadline) {
-        await new Promise(r => setTimeout(r, delay));
-        delay = Math.min(delay * 1.5, 5000);
+      // Check if reply already exists
+      const existingReply = messages.findReplyInThread(tid, recipient, sender, msgId);
+      if (existingReply) {
+        return { content: [{ type: "text" as const, text: JSON.stringify({ success: true, request_id: msgId, reply: existingReply }) }] };
+      }
 
-        const reply = db.prepare(
-          `SELECT * FROM messages WHERE thread_id = ? AND sender = ? AND recipient = ? AND id != ? ORDER BY created_at DESC LIMIT 1`
-        ).get(tid, recipient, sender, msgId) as Record<string, unknown> | undefined;
-
+      // Wait for reply via event bus (no polling)
+      try {
+        await eventBus.waitFor(`message:${sender}`, timeout_seconds * 1000);
+        // Event received — check for the actual reply
+        const reply = messages.findReplyInThread(tid, recipient, sender, msgId);
         if (reply) {
           return { content: [{ type: "text" as const, text: JSON.stringify({ success: true, request_id: msgId, reply }) }] };
         }
+      } catch {
+        // Timeout — fall through
       }
 
       return { content: [{ type: "text" as const, text: JSON.stringify({ success: false, request_id: msgId, error: "Timeout waiting for reply", timeout_seconds }) }] };
@@ -231,18 +202,9 @@ export function registerMessagingTools(server: McpServer): void {
       limit: z.number().min(1).max(100).default(10).describe("Max threads"),
     },
     async ({ agent, limit }) => {
-      const db = getDb();
-      const threads = db.prepare(
-        `SELECT t.*, COUNT(m.id) as message_count,
-                SUM(CASE WHEN m.recipient = ? AND m.status IN ('pending','delivered') THEN 1 ELSE 0 END) as unread
-         FROM threads t
-         LEFT JOIN messages m ON m.thread_id = t.id
-         WHERE t.participants LIKE ?
-         GROUP BY t.id
-         ORDER BY t.updated_at DESC LIMIT ?`
-      ).all(agent, `%${agent}%`, limit);
-
-      return { content: [{ type: "text" as const, text: JSON.stringify({ agent, threads }) }] };
+      const { threads } = getRepos();
+      const result = threads.findByParticipant(agent, limit);
+      return { content: [{ type: "text" as const, text: JSON.stringify({ agent, threads: result }) }] };
     }
   );
 
@@ -253,8 +215,8 @@ export function registerMessagingTools(server: McpServer): void {
       message_id: z.string().max(256).describe("Message ID to retrieve"),
     },
     async ({ message_id }) => {
-      const db = getDb();
-      const msg = db.prepare(`SELECT * FROM messages WHERE id = ?`).get(message_id);
+      const { messages } = getRepos();
+      const msg = messages.findById(message_id);
 
       if (!msg) {
         return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Message not found" }) }] };
@@ -271,8 +233,8 @@ export function registerMessagingTools(server: McpServer): void {
       message_id: z.string().max(256).describe("Message ID to delete"),
     },
     async ({ message_id }) => {
-      const db = getDb();
-      const msg = db.prepare(`SELECT id, status FROM messages WHERE id = ?`).get(message_id) as { id: string; status: string } | undefined;
+      const { messages } = getRepos();
+      const msg = messages.findById(message_id);
 
       if (!msg) {
         return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Message not found" }) }] };
@@ -282,8 +244,7 @@ export function registerMessagingTools(server: McpServer): void {
         return { content: [{ type: "text" as const, text: JSON.stringify({ error: `Cannot delete message with status '${msg.status}'. Only acked or delivered messages can be deleted.` }) }] };
       }
 
-      db.prepare(`DELETE FROM messages WHERE id = ?`).run(message_id);
-
+      messages.delete(message_id);
       return { content: [{ type: "text" as const, text: JSON.stringify({ deleted: true, message_id }) }] };
     }
   );
@@ -295,16 +256,8 @@ export function registerMessagingTools(server: McpServer): void {
       agent: z.string().max(256).regex(/^[a-zA-Z0-9_.-]+$/).describe("Agent name"),
     },
     async ({ agent }) => {
-      const db = getDb();
-      const rows = db.prepare(
-        `SELECT status, COUNT(*) as count FROM messages WHERE recipient = ? GROUP BY status`
-      ).all(agent) as Array<{ status: string; count: number }>;
-
-      const counts: Record<string, number> = { pending: 0, delivered: 0, acked: 0 };
-      for (const row of rows) {
-        counts[row.status] = row.count;
-      }
-
+      const { messages } = getRepos();
+      const counts = messages.countByStatus(agent);
       return { content: [{ type: "text" as const, text: JSON.stringify({ agent, counts }) }] };
     }
   );
@@ -317,15 +270,14 @@ export function registerMessagingTools(server: McpServer): void {
       status: z.enum(MESSAGE_STATUSES).describe("New status: pending, delivered, read, acked, expired"),
     },
     async ({ message_id, status }) => {
-      const db = getDb();
-      const msg = db.prepare(`SELECT id FROM messages WHERE id = ?`).get(message_id);
+      const { messages } = getRepos();
+      const msg = messages.findById(message_id);
 
       if (!msg) {
         return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Message not found" }) }] };
       }
 
-      db.prepare(`UPDATE messages SET status = ? WHERE id = ?`).run(status, message_id);
-
+      messages.updateStatus(message_id, status);
       return { content: [{ type: "text" as const, text: JSON.stringify({ updated: true, message_id, status }) }] };
     }
   );
