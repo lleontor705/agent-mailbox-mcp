@@ -7,6 +7,9 @@ on:
     branches: [master, develop]
 
 jobs:
+  security:
+    uses: lleontor705/ats-deploy/.github/workflows/security-scan.yml@main
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:
