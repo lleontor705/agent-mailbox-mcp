@@ -12,6 +12,21 @@ export interface PushSubscription {
   created_at: string;
 }
 
+function validateWebhookUrl(url: string): void {
+  const parsed = new URL(url);
+  if (parsed.protocol !== 'https:') throw new Error('Webhook URL must use HTTPS');
+  const hostname = parsed.hostname.toLowerCase();
+  const blocked = ['localhost', '127.0.0.1', '::1', '0.0.0.0', 'metadata.google.internal', '169.254.169.254'];
+  if (blocked.includes(hostname)) throw new Error('Webhook URL points to blocked host');
+  // Block private IP ranges
+  const parts = hostname.split('.').map(Number);
+  if (parts.length === 4 && !isNaN(parts[0])) {
+    if (parts[0] === 10 || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) || (parts[0] === 192 && parts[1] === 168)) {
+      throw new Error('Webhook URL points to private network');
+    }
+  }
+}
+
 /**
  * Manages webhook-based push notifications for A2A task updates.
  */
@@ -59,6 +74,13 @@ export class PushNotificationService {
   async notify(taskId: string, event: TaskStatusEvent): Promise<boolean> {
     const sub = this.getSubscription(taskId);
     if (!sub) return false;
+
+    try {
+      validateWebhookUrl(sub.webhook_url);
+    } catch (err) {
+      console.error(`Webhook URL validation failed for ${sub.webhook_url}: ${(err as Error).message}`);
+      return false;
+    }
 
     const maxRetries = 3;
     let delay = 1000;

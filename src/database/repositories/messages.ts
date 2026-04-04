@@ -98,18 +98,19 @@ export class MessageRepository {
   ): Array<Record<string, unknown>> {
     const likeQuery = `%${query}%`;
     let rows: Array<Record<string, unknown>>;
+    // Note: body is excluded from search because it may be encrypted
     if (agent) {
       rows = this.db
         .prepare(
-          `SELECT * FROM messages WHERE (sender = ? OR recipient = ?) AND (subject LIKE ? OR body LIKE ?) ORDER BY created_at DESC LIMIT ? OFFSET ?`
+          `SELECT * FROM messages WHERE (sender = ? OR recipient = ?) AND (subject LIKE ? OR sender LIKE ? OR recipient LIKE ?) ORDER BY created_at DESC LIMIT ? OFFSET ?`
         )
-        .all(agent, agent, likeQuery, likeQuery, limit, offset) as Array<Record<string, unknown>>;
+        .all(agent, agent, likeQuery, likeQuery, likeQuery, limit, offset) as Array<Record<string, unknown>>;
     } else {
       rows = this.db
         .prepare(
-          `SELECT * FROM messages WHERE subject LIKE ? OR body LIKE ? ORDER BY created_at DESC LIMIT ? OFFSET ?`
+          `SELECT * FROM messages WHERE subject LIKE ? OR sender LIKE ? OR recipient LIKE ? ORDER BY created_at DESC LIMIT ? OFFSET ?`
         )
-        .all(likeQuery, likeQuery, limit, offset) as Array<Record<string, unknown>>;
+        .all(likeQuery, likeQuery, likeQuery, limit, offset) as Array<Record<string, unknown>>;
     }
     return this.decryptRows(rows);
   }

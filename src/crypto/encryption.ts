@@ -1,11 +1,28 @@
 import { createCipheriv, createDecipheriv, randomBytes, pbkdf2Sync } from "node:crypto";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
 import { loadConfig } from "../config.js";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
-const SALT = "agent-mailbox-mcp-salt"; // Fixed salt for key derivation
 const KEY_LENGTH = 32;
+
+function getSalt(): string {
+  const envSalt = process.env.MAILBOX_SALT;
+  if (envSalt) return envSalt;
+
+  const saltFile = join(process.env.MAILBOX_DB_PATH || join(process.env.HOME || process.env.USERPROFILE || ".", ".agent-mailbox"), "encryption.salt");
+  if (existsSync(saltFile)) return readFileSync(saltFile, "utf-8").trim();
+
+  const salt = randomBytes(16).toString("hex");
+  const dir = dirname(saltFile);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(saltFile, salt, { mode: 0o600 });
+  return salt;
+}
+
+const SALT = getSalt();
 
 let derivedKey: Buffer | null = null;
 

@@ -76,8 +76,10 @@ async function fetchJson(url) {
   return res.json();
 }
 
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
 function statusBadge(status) {
-  return '<span class="status status-' + status + '">' + status + '</span>';
+  return '<span class="status status-' + esc(status) + '">' + esc(status) + '</span>';
 }
 
 function timeAgo(iso) {
@@ -108,17 +110,17 @@ async function refresh() {
 
     var ab = document.querySelector('#agents tbody');
     ab.innerHTML = agents.map(function(a) {
-      return '<tr><td>' + a.id + '</td><td>' + (a.role||'-') + '</td><td>' + timeAgo(a.last_active) + '</td></tr>';
+      return '<tr><td>' + esc(a.id) + '</td><td>' + esc(a.role||'-') + '</td><td>' + timeAgo(a.last_active) + '</td></tr>';
     }).join('');
 
     var mb = document.querySelector('#messages tbody');
     mb.innerHTML = (msgs.activity||[]).slice(0,20).map(function(m) {
-      return '<tr><td>' + m.sender + '</td><td>' + m.recipient + '</td><td>' + m.subject + '</td><td>' + statusBadge(m.status) + '</td><td>' + timeAgo(m.created_at) + '</td></tr>';
+      return '<tr><td>' + esc(m.sender) + '</td><td>' + esc(m.recipient) + '</td><td>' + esc(m.subject) + '</td><td>' + statusBadge(m.status) + '</td><td>' + timeAgo(m.created_at) + '</td></tr>';
     }).join('') || '<tr><td colspan="5">No recent messages</td></tr>';
 
     var tb = document.querySelector('#tasks tbody');
     tb.innerHTML = (tasks||[]).slice(0,20).map(function(t) {
-      return '<tr><td>' + t.id + '</td><td>' + t.from_agent + '</td><td>' + t.to_agent + '</td><td>' + statusBadge(t.status) + '</td><td>' + timeAgo(t.updated_at) + '</td></tr>';
+      return '<tr><td>' + esc(t.id) + '</td><td>' + esc(t.from_agent) + '</td><td>' + esc(t.to_agent) + '</td><td>' + statusBadge(t.status) + '</td><td>' + timeAgo(t.updated_at) + '</td></tr>';
     }).join('') || '<tr><td colspan="5">No tasks</td></tr>';
 
     document.getElementById('refresh').textContent = 'Last updated: ' + new Date().toLocaleTimeString() + ' (auto-refresh 10s)';
