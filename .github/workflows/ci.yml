@@ -1,13 +1,22 @@
 name: CI
-
 on:
   push:
-    branches: [master, develop]
+    branches: [develop, main]
   pull_request:
-    branches: [master, develop]
+    branches: [develop, main]
 
 jobs:
-  test:
+  quality:
+    uses: lleontor705/ats-deploy/.github/workflows/quality-node.yml@main
+    with:
+      node-version: "22"
+      lint-command: "npm run lint"
+      test-command: "npm test"
+
+  security:
+    uses: lleontor705/ats-deploy/.github/workflows/security-scan.yml@main
+
+  test-matrix:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -21,5 +30,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - run: npm run lint
       - run: npm test
