@@ -1,9 +1,17 @@
 {
   "name": "agent-mailbox-mcp",
-  "version": "1.0.0",
+  "version": "1.5.1",
   "description": "MCP Server for inter-agent messaging — SQS-style mailbox for multi-agent AI systems",
   "type": "module",
   "main": "./build/index.js",
+  "types": "./build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "import": "./build/index.js",
+      "default": "./build/index.js"
+    }
+  },
   "bin": {
     "agent-mailbox-mcp": "build/index.js"
   },
