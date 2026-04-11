@@ -72,17 +72,4 @@ export function registerResourceTools(server: McpServer): void {
     }
   );
 
-  server.tool(
-    "resource_list",
-    "List all active resource leases.",
-    {},
-    async () => {
-      const leases = getLeaseRepo();
-      const list = leases.listAll();
-
-      return { content: [{ type: "text" as const, text: JSON.stringify({
-        count: list.length, leases: list,
-      }) }] };
-    }
-  );
 }
