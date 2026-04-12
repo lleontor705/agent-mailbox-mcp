@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="system-ui, -apple-system, sans-serif" font-size="13">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00d2ff"/>
+      <stop offset="100%" style="stop-color:#7b2ff7"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="520" rx="12" fill="#0d1117"/>
+
+  <!-- Title -->
+  <text x="450" y="35" text-anchor="middle" fill="url(#headerGrad)" font-size="18" font-weight="bold">agent-mailbox-mcp — Architecture</text>
+
+  <!-- Agents Layer -->
+  <rect x="30" y="55" width="840" height="70" rx="8" fill="#161b22" stroke="#30363d"/>
+  <text x="50" y="78" fill="#8b949e" font-size="11" font-weight="600">AGENTS</text>
+
+  <rect x="60" y="88" width="110" height="28" rx="6" fill="#1f2937" stroke="#00d2ff" stroke-width="1.5"/>
+  <text x="115" y="107" text-anchor="middle" fill="#00d2ff" font-size="12">Claude Code</text>
+
+  <rect x="190" y="88" width="110" height="28" rx="6" fill="#1f2937" stroke="#00d2ff" stroke-width="1.5"/>
+  <text x="245" y="107" text-anchor="middle" fill="#00d2ff" font-size="12">Codex CLI</text>
+
+  <rect x="320" y="88" width="110" height="28" rx="6" fill="#1f2937" stroke="#00d2ff" stroke-width="1.5"/>
+  <text x="375" y="107" text-anchor="middle" fill="#00d2ff" font-size="12">Gemini CLI</text>
+
+  <rect x="450" y="88" width="110" height="28" rx="6" fill="#1f2937" stroke="#7b2ff7" stroke-width="1.5"/>
+  <text x="505" y="107" text-anchor="middle" fill="#7b2ff7" font-size="12">A2A Agent</text>
+
+  <rect x="580" y="88" width="130" height="28" rx="6" fill="#1f2937" stroke="#7b2ff7" stroke-width="1.5"/>
+  <text x="645" y="107" text-anchor="middle" fill="#7b2ff7" font-size="12">External Service</text>
+
+  <rect x="730" y="88" width="120" height="28" rx="6" fill="#1f2937" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="790" y="107" text-anchor="middle" fill="#fbbf24" font-size="12">Dashboard</text>
+
+  <!-- Transport Layer -->
+  <rect x="30" y="140" width="840" height="55" rx="8" fill="#161b22" stroke="#30363d"/>
+  <text x="50" y="163" fill="#8b949e" font-size="11" font-weight="600">TRANSPORT</text>
+
+  <rect x="130" y="152" width="100" height="28" rx="6" fill="#0e4429" stroke="#34d399" stroke-width="1.5"/>
+  <text x="180" y="171" text-anchor="middle" fill="#34d399" font-size="12">stdio</text>
+
+  <rect x="250" y="152" width="130" height="28" rx="6" fill="#0e4429" stroke="#34d399" stroke-width="1.5"/>
+  <text x="315" y="171" text-anchor="middle" fill="#34d399" font-size="12">HTTP /mcp</text>
+
+  <rect x="400" y="152" width="150" height="28" rx="6" fill="#1c1836" stroke="#7b2ff7" stroke-width="1.5"/>
+  <text x="475" y="171" text-anchor="middle" fill="#a78bfa" font-size="12">JSON-RPC /a2a</text>
+
+  <rect x="570" y="152" width="100" height="28" rx="6" fill="#1c1836" stroke="#7b2ff7" stroke-width="1.5"/>
+  <text x="620" y="171" text-anchor="middle" fill="#a78bfa" font-size="12">SSE Stream</text>
+
+  <rect x="690" y="152" width="120" height="28" rx="6" fill="#2d1f0e" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="750" y="171" text-anchor="middle" fill="#fbbf24" font-size="12">/dashboard</text>
+
+  <!-- Auth Layer -->
+  <rect x="230" y="205" width="160" height="24" rx="4" fill="#1f2937" stroke="#f87171" stroke-width="1"/>
+  <text x="310" y="221" text-anchor="middle" fill="#f87171" font-size="11">JWT Auth (HTTP only)</text>
+
+  <!-- Server Core -->
+  <rect x="30" y="240" width="840" height="80" rx="8" fill="#161b22" stroke="#30363d"/>
+  <text x="50" y="263" fill="#8b949e" font-size="11" font-weight="600">MCP SERVER (27 tools)</text>
+
+  <rect x="50" y="272" width="130" height="36" rx="6" fill="#0e4429" stroke="#34d399"/>
+  <text x="115" y="286" text-anchor="middle" fill="#34d399" font-size="11">Messaging (12)</text>
+  <text x="115" y="300" text-anchor="middle" fill="#8b949e" font-size="10">msg_*</text>
+
+  <rect x="195" y="272" width="120" height="36" rx="6" fill="#0e4429" stroke="#34d399"/>
+  <text x="255" y="286" text-anchor="middle" fill="#34d399" font-size="11">Registry (3)</text>
+  <text x="255" y="300" text-anchor="middle" fill="#8b949e" font-size="10">agent_*</text>
+
+  <rect x="330" y="272" width="110" height="36" rx="6" fill="#1c1836" stroke="#7b2ff7"/>
+  <text x="385" y="286" text-anchor="middle" fill="#a78bfa" font-size="11">A2A Tasks (5)</text>
+  <text x="385" y="300" text-anchor="middle" fill="#8b949e" font-size="10">a2a_*</text>
+
+  <rect x="455" y="272" width="130" height="36" rx="6" fill="#1f2020" stroke="#fb923c"/>
+  <text x="520" y="286" text-anchor="middle" fill="#fb923c" font-size="11">Resources (4)</text>
+  <text x="520" y="300" text-anchor="middle" fill="#8b949e" font-size="10">resource_*</text>
+
+  <rect x="600" y="272" width="120" height="36" rx="6" fill="#1f1f20" stroke="#f87171"/>
+  <text x="660" y="286" text-anchor="middle" fill="#f87171" font-size="11">Dead Letter (3)</text>
+  <text x="660" y="300" text-anchor="middle" fill="#8b949e" font-size="10">dlq_*</text>
+
+  <rect x="735" y="272" width="120" height="36" rx="6" fill="#1a1a2e" stroke="#60a5fa"/>
+  <text x="795" y="286" text-anchor="middle" fill="#60a5fa" font-size="11">EventBus</text>
+  <text x="795" y="300" text-anchor="middle" fill="#8b949e" font-size="10">pub/sub/waitFor</text>
+
+  <!-- Repository Layer -->
+  <rect x="30" y="335" width="840" height="55" rx="8" fill="#161b22" stroke="#30363d"/>
+  <text x="50" y="358" fill="#8b949e" font-size="11" font-weight="600">REPOSITORIES</text>
+
+  <rect x="100" y="348" width="90" height="28" rx="4" fill="#1f2937"/>
+  <text x="145" y="366" text-anchor="middle" fill="#e1e4e8" font-size="10">Messages</text>
+
+  <rect x="200" y="348" width="80" height="28" rx="4" fill="#1f2937"/>
+  <text x="240" y="366" text-anchor="middle" fill="#e1e4e8" font-size="10">Threads</text>
+
+  <rect x="290" y="348" width="80" height="28" rx="4" fill="#1f2937"/>
+  <text x="330" y="366" text-anchor="middle" fill="#e1e4e8" font-size="10">Agents</text>
+
+  <rect x="380" y="348" width="80" height="28" rx="4" fill="#1f2937"/>
+  <text x="420" y="366" text-anchor="middle" fill="#e1e4e8" font-size="10">Tasks</text>
+
+  <rect x="470" y="348" width="80" height="28" rx="4" fill="#1f2937"/>
+  <text x="510" y="366" text-anchor="middle" fill="#e1e4e8" font-size="10">Leases</text>
+
+  <rect x="560" y="348" width="100" height="28" rx="4" fill="#1f2937"/>
+  <text x="610" y="366" text-anchor="middle" fill="#e1e4e8" font-size="10">Dead Letter</text>
+
+  <rect x="680" y="348" width="110" height="28" rx="4" fill="#2d1a1a" stroke="#f87171" stroke-width="1"/>
+  <text x="735" y="366" text-anchor="middle" fill="#f87171" font-size="10">Encryption</text>
+
+  <!-- Database Layer -->
+  <rect x="30" y="405" width="840" height="55" rx="8" fill="#161b22" stroke="#30363d"/>
+  <text x="50" y="428" fill="#8b949e" font-size="11" font-weight="600">DATABASE</text>
+
+  <rect x="200" y="415" width="200" height="32" rx="6" fill="#1a1a2e" stroke="#60a5fa"/>
+  <text x="300" y="435" text-anchor="middle" fill="#60a5fa" font-size="12">SQLite (WAL mode)</text>
+
+  <rect x="430" y="415" width="160" height="32" rx="6" fill="#1a1a2e" stroke="#60a5fa"/>
+  <text x="510" y="435" text-anchor="middle" fill="#60a5fa" font-size="12">6 Migrations</text>
+
+  <rect x="620" y="415" width="160" height="32" rx="6" fill="#1a1a2e" stroke="#60a5fa"/>
+  <text x="700" y="435" text-anchor="middle" fill="#60a5fa" font-size="12">11 Tables</text>
+
+  <!-- Footer -->
+  <text x="450" y="490" text-anchor="middle" fill="#484f58" font-size="11">MCP Protocol (Anthropic) + A2A Protocol (Google/Linux Foundation)</text>
+  <text x="450" y="508" text-anchor="middle" fill="#484f58" font-size="10">TypeScript · Node.js >=18 · Zero external auth dependencies</text>
+</svg>
