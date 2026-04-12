@@ -96,7 +96,7 @@ args = ["-y", "agent-mailbox-mcp"]
 
 ## Features
 
-### Messaging (12 tools)
+### Messaging (7 tools)
 
 Send, receive, search, and manage messages between agents with priority, threading, deduplication, and auto-expiration.
 
@@ -107,7 +107,7 @@ Send, receive, search, and manage messages between agents with priority, threadi
 → msg_read_inbox(agent: "analyst")
 ← { count: 1, messages: [{ subject: "Q1 Report", priority: "high", ... }] }
 
-→ msg_acknowledge(message_id: "msg-a1b2c3", reply_body: "Report ready: revenue up 23% QoQ")
+→ msg_broadcast(sender: "team-lead-1", subject: "Group 1 complete", body: "Completed: [1.1, 1.2]")
 ```
 
 ### A2A Task Delegation (5 tools)
@@ -125,16 +125,19 @@ Delegate complex work to specialized agents. Tasks have a full lifecycle with st
 → a2a_respond_task(task_id: "task-x1y2z3", message: "Analysis complete: ...", status: "completed", artifact_name: "competitor-report")
 ```
 
-### Resource Coordination (4 tools)
+### Resource Coordination (3 tools)
 
-Advisory locking for files, APIs, or any shared resource. Prevents agents from stepping on each other's work.
+Advisory locking for deploy, CI, APIs, or any shared resource. Prevents agents from stepping on each other's work.
 
 ```
-→ resource_acquire(resource_id: "data/config.yaml", agent: "editor-1", lease_type: "exclusive", ttl_seconds: 60)
+→ resource_check(resource_id: "deploy-staging")
+← { held: false }
+
+→ resource_acquire(resource_id: "deploy-staging", agent: "implement-1", lease_type: "exclusive", ttl_seconds: 300)
 ← { acquired: true }
 
-→ resource_acquire(resource_id: "data/config.yaml", agent: "editor-2")
-← { acquired: false, holder: { agent_id: "editor-1", expires_at: "..." } }
+→ resource_release(resource_id: "deploy-staging", agent: "implement-1")
+← { released: true }
 ```
 
 ### Dead-Letter Queue (3 tools)
@@ -166,15 +169,15 @@ Full [A2A protocol](https://a2aprotocol.ai/) support over JSON-RPC 2.0:
 
 Optional AES-256-GCM encryption for message bodies. Set `MAILBOX_ENCRYPTION_KEY` to enable — transparent to tools.
 
-## All 27 Tools
+## All 21 Tools
 
 | Category | Tools | Description |
 |----------|-------|-------------|
-| **Messaging** | `msg_send` `msg_read_inbox` `msg_acknowledge` `msg_broadcast` `msg_search` `msg_request` `msg_list_threads` `msg_get` `msg_delete` `msg_count` `msg_update_status` | Full messaging lifecycle with priority, threading, dedup |
-| **Registry** | `agent_register` `msg_list_agents` `msg_activity_feed` | Agent discovery and monitoring |
-| **A2A Tasks** | `a2a_submit_task` `a2a_get_task` `a2a_cancel_task` `a2a_list_tasks` `a2a_respond_task` | Task delegation with state machine |
-| **Resources** | `resource_acquire` `resource_release` `resource_check` `resource_list` | Advisory resource leasing |
-| **Dead Letter** | `dlq_list` `dlq_retry` `dlq_purge` | Failed message recovery |
+| **Messaging** (7) | `msg_send` `msg_read_inbox` `msg_broadcast` `msg_search` `msg_request` `msg_list_threads` `msg_count` | Async/sync messaging with priority, threading, dedup |
+| **Registry** (3) | `agent_register` `msg_list_agents` `msg_activity_feed` | Agent discovery and activity monitoring |
+| **A2A Tasks** (5) | `a2a_submit_task` `a2a_get_task` `a2a_cancel_task` `a2a_list_tasks` `a2a_respond_task` | Task delegation with state machine |
+| **Resources** (3) | `resource_acquire` `resource_release` `resource_check` | Advisory resource leasing (deploy, CI, APIs) |
+| **Dead Letter** (3) | `dlq_list` `dlq_retry` `dlq_purge` | Failed message recovery |
 
 ## Environment Variables
 
@@ -193,7 +196,7 @@ Optional AES-256-GCM encryption for message bodies. Set `MAILBOX_ENCRYPTION_KEY`
 | Guide | Description |
 |-------|-------------|
 | [Getting Started](docs/getting-started.md) | Installation, configuration, first message |
-| [Tools Reference](docs/tools-reference.md) | All 27 tools with parameters and examples |
+| [Tools Reference](docs/tools-reference.md) | All 21 tools with parameters and examples |
 | [A2A Protocol Guide](docs/a2a-guide.md) | Task delegation, Agent Cards, streaming, webhooks |
 | [Examples](docs/examples.md) | Real-world usage patterns |
 | [Skill Guide](docs/SKILL.md) | Guide for AI agents on how to use the mailbox |

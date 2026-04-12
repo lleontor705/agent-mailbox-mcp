@@ -1,0 +1,204 @@
+# agent-mailbox-mcp
+
+> MCP Server for inter-agent messaging — SQS-style mailbox for multi-agent AI systems. Provides 14 tools for sending, receiving, threading, broadcasting, and managing messages between AI agents via the Model Context Protocol (MCP). Works with any MCP-compatible client including Claude Code, Codex CLI, Gemini CLI, and OpenClaw.
+
+## Installation
+
+Run directly with npx (no install needed):
+
+```
+npx -y agent-mailbox-mcp
+```
+
+The server communicates via stdio transport and creates a SQLite database at `~/.agent-mailbox/mailbox.db` automatically.
+
+### Client Configuration
+
+Claude Code:
+```
+claude mcp add agent-mailbox --transport stdio -- npx -y agent-mailbox-mcp
+```
+
+Codex CLI (~/.codex/config.toml):
+```
+[mcp_servers.agent-mailbox]
+command = "npx"
+args = ["-y", "agent-mailbox-mcp"]
+```
+
+Gemini CLI (settings.json):
+```
+{
+  "mcpServers": {
+    "agent-mailbox": {
+      "command": "npx",
+      "args": ["-y", "agent-mailbox-mcp"]
+    }
+  }
+}
+```
+
+## Environment Variables
+
+- `MAILBOX_DIR` (default: `~/.agent-mailbox`) — Database directory
+- `MAILBOX_DB` (default: `~/.agent-mailbox/mailbox.db`) — Full database path
+- `MAILBOX_TTL` (default: `86400`) — Message TTL in seconds (24 hours)
+
+## Message Lifecycle
+
+Messages follow this lifecycle: pending → delivered → read → acked. Messages can also expire automatically after the configured TTL. Only messages with status `acked` or `delivered` can be deleted.
+
+## Tool Reference
+
+### msg_send
+
+Send a message to another agent. Supports deduplication via dedup_key and conversation threading via thread_id. If no thread_id is provided, a new thread is created automatically.
+
+Parameters:
+- `sender` (string, required): Sender agent name. Must match pattern `^[a-zA-Z0-9_.-]+$`, max 256 chars.
+- `recipient` (string, required): Recipient agent name. Same format as sender.
+- `subject` (string, required): Message subject. Min 1, max 1024 chars.
+- `body` (string, required): Message body. Min 1, max 65536 chars (64KB).
+- `priority` (string, optional): Priority level — `high`, `normal` (default), or `low`.
+- `thread_id` (string, optional): Thread ID for conversation continuity. Max 256 chars.
+- `dedup_key` (string, optional): Deduplication key. If a message with this key already exists, the send is rejected. Max 512 chars.
+
+Returns: `{ sent: true, message_id, thread_id, recipient, priority }` or `{ sent: false, reason: "duplicate", dedup_key }`.
+
+### msg_read_inbox
+
+Read unread messages for an agent. Messages with status `pending` are marked as `delivered`. Results are sorted by priority (high > normal > low), then by creation time. Also triggers cleanup of expired messages.
+
+Parameters:
+- `agent` (string, required): Agent name (recipient). Must match `^[a-zA-Z0-9_.-]+$`, max 256 chars.
+- `limit` (number, optional): Max messages to return. Range 1-100, default 10.
+
+Returns: `{ agent, count, messages: [...] }` where each message includes all fields (id, sender, recipient, subject, body, priority, status, thread_id, dedup_key, created_at, delivered_at, acked_at, expires_at).
+
+### msg_acknowledge
+
+Acknowledge a message as processed. Changes status to `acked`. Optionally sends a reply back to the original sender in the same thread with subject prefixed "Re: ".
+
+Parameters:
+- `message_id` (string, required): Message ID to acknowledge. Max 256 chars.
+- `reply_body` (string, optional): Optional reply message body. Max 65536 chars.
+
+Returns: `{ acknowledged: true, message_id, reply_id }` (reply_id is null if no reply sent).
+
+### msg_broadcast
+
+Send a message to all registered agents (excluding the sender). Creates a new thread with all recipients as participants. Uses a database transaction for atomicity.
+
+Parameters:
+- `sender` (string, required): Sender agent name.
+- `subject` (string, required): Message subject. Max 1024 chars.
+- `body` (string, required): Message body. Max 65536 chars.
+- `priority` (string, optional): `high`, `normal` (default), or `low`.
+
+Returns: `{ broadcast: true, recipients: <count>, message_ids: [...], thread_id }`.
+
+### msg_search
+
+Search messages by content using SQL LIKE matching on subject and body fields. Optionally filter by agent (matches both sender and recipient).
+
+Parameters:
+- `query` (string, required): Search query. Max 1024 chars.
+- `agent` (string, optional): Filter by agent name (sender or recipient).
+- `limit` (number, optional): Max results. Range 1-100, default 20.
+
+Returns: `{ query, count, messages: [...] }`.
+
+### msg_request
+
+Send a message and poll for a reply — synchronous request/reply pattern. The request is sent with `high` priority. Uses exponential backoff polling starting at 500ms, capping at 5s intervals.
+
+Parameters:
+- `sender` (string, required): Sender agent name.
+- `recipient` (string, required): Recipient agent name.
+- `subject` (string, required): Request subject. Max 1024 chars.
+- `body` (string, required): Request body. Max 65536 chars.
+- `timeout_seconds` (number, optional): Max wait time for reply. Range 1-300, default 120.
+
+Returns: `{ success: true, request_id, reply: {...} }` or `{ success: false, request_id, error: "Timeout waiting for reply", timeout_seconds }`.
+
+### msg_list_threads
+
+List conversation threads for an agent. Includes message count and unread count (messages with status `pending` or `delivered` addressed to the agent).
+
+Parameters:
+- `agent` (string, required): Agent name.
+- `limit` (number, optional): Max threads. Range 1-100, default 10.
+
+Returns: `{ agent, threads: [{ id, subject, participants, created_at, updated_at, message_count, unread }] }`.
+
+### msg_get
+
+Get a single message by ID. Returns full message details including all fields.
+
+Parameters:
+- `message_id` (string, required): Message ID to retrieve. Max 256 chars.
+
+Returns: `{ message: {...} }` or `{ error: "Message not found" }`.
+
+### msg_delete
+
+Delete a message by ID. Only allows deletion of messages with status `acked` or `delivered`. Messages with status `pending`, `read`, or `expired` cannot be deleted.
+
+Parameters:
+- `message_id` (string, required): Message ID to delete. Max 256 chars.
+
+Returns: `{ deleted: true, message_id }` or `{ error: "Cannot delete message with status '...'" }`.
+
+### msg_count
+
+Count messages grouped by status for an agent. Returns counts for pending, delivered, and acked statuses.
+
+Parameters:
+- `agent` (string, required): Agent name.
+
+Returns: `{ agent, counts: { pending: N, delivered: N, acked: N } }`.
+
+### msg_update_status
+
+Manually update the status of a message. Useful for admin operations like manually expiring messages or resetting status.
+
+Parameters:
+- `message_id` (string, required): Message ID to update. Max 256 chars.
+- `status` (string, required): New status — one of `pending`, `delivered`, `read`, `acked`, `expired`.
+
+Returns: `{ updated: true, message_id, status }`.
+
+### agent_register
+
+Register an agent in the mailbox system with a name and role. Uses upsert — calling again with the same name updates the role and refreshes the last_active timestamp.
+
+Parameters:
+- `name` (string, required): Agent name (unique identifier). Must match `^[a-zA-Z0-9_.-]+$`, min 1, max 256 chars.
+- `role` (string, optional): Agent role description (e.g. "manager", "coordinator", "developer"). Max 256 chars.
+
+Returns: `{ registered: true, agent, role }`.
+
+### msg_list_agents
+
+List all registered agents with their roles and last activity timestamps. No parameters. Returns agents sorted by most recently active.
+
+Returns: `{ count, agents: [{ id, role, last_active, registered_at }] }`.
+
+### msg_activity_feed
+
+Get recent messaging activity feed with aggregate statistics. Shows messages created within the specified time window along with counts by status.
+
+Parameters:
+- `minutes` (number, optional): Lookback window in minutes. Default 30.
+
+Returns: `{ window_minutes, stats: { total, pending, delivered, acked }, activity: [{ id, sender, recipient, subject, priority, status, created_at }] }`.
+
+## Architecture
+
+- **Transport**: stdio (Model Context Protocol)
+- **Storage**: SQLite via better-sqlite3 with WAL mode enabled
+- **Schema**: 3 tables — `messages` (with indexes on recipient+status, sender, thread_id, priority), `threads`, `agent_registry`
+- **IDs**: Prefixed UUIDs (msg- for messages, thr- for threads)
+- **Validation**: Zod schemas for all tool inputs with regex patterns and length constraints
+- **Concurrency**: WAL mode + 32MB cache + 5s busy timeout for multi-process safety
+- **Runtime**: Node.js >= 18, ES Modules

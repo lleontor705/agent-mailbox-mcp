@@ -36,11 +36,11 @@ MCP server for inter-agent messaging with A2A protocol support, dual transport (
 
 **Request flow:** Entry point → transport → `createServer()` (`src/server.ts`) → tool handlers → repositories → SQLite
 
-**Tool modules (27 MCP tools):**
-- `src/tools/messaging.ts` — 12 tools prefixed `msg_*` (send, read inbox, acknowledge, broadcast, search, request/reply, threads, get, delete, count, status update)
+**Tool modules (21 MCP tools):**
+- `src/tools/messaging.ts` — 7 tools prefixed `msg_*` (send, read inbox, broadcast, search, request/reply, threads, count)
 - `src/tools/registry.ts` — 3 tools (`agent_register` with A2A Agent Card fields, `msg_list_agents`, `msg_activity_feed`)
 - `src/tools/a2a.ts` — 5 tools prefixed `a2a_*` (submit_task, get_task, cancel_task, list_tasks, respond_task)
-- `src/tools/resources.ts` — 4 tools prefixed `resource_*` (acquire, release, check, list) for advisory file/resource leasing
+- `src/tools/resources.ts` — 3 tools prefixed `resource_*` (acquire, release, check) for advisory resource leasing
 - `src/tools/dead-letter.ts` — 3 tools prefixed `dlq_*` (list, retry, purge) for dead-letter queue management
 
 **A2A Protocol** (`src/a2a/`):
