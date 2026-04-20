@@ -1,0 +1,30 @@
+# Source files
+src/
+tests/
+*.ts
+!*.d.ts
+
+# Config files
+tsconfig*.json
+vitest.config.ts
+.editorconfig
+.eslintrc*
+.prettierrc*
+
+# Dependencies
+node_modules/
+
+# Development
+.git/
+.github/
+.husky/
+*.log
+*.swp
+*.swo
+*~
+
+# Documentation (if included in files field)
+docs/
+
+# CI/CD
+.workflow/
